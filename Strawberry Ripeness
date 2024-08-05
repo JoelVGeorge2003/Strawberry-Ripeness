@@ -1,0 +1,81 @@
+
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+import cv2
+
+from google.colab import files
+files.upload()
+
+# Move the kaggle.json file to the correct location
+!mkdir -p ~/.kaggle
+!cp kaggle.json ~/.kaggle/
+!chmod 600 ~/.kaggle/kaggle.json
+
+# Download the dataset from Kaggle
+!kaggle datasets download -d trainingdatapro/ripe-strawberries-detection
+
+# Extract the dataset
+!unzip ripe-strawberries-detection.zip -d /content/ripe-strawberries-detection
+
+# Verify the contents of the dataset directory
+import os
+dataset_path = '/content/ripe-strawberries-detection'
+print(os.listdir(dataset_path))
+
+print('successfully accessed')
+
+# ImageDataGenerator for preprocessing
+datagen = ImageDataGenerator(
+    rescale=1.0/255.0,
+    validation_split=0.2)
+
+# ImageDataGenerator for preprocessing
+datagen = ImageDataGenerator(
+    rescale=1.0/255.0,
+    validation_split=0.2
+)
+
+train_generator = datagen.flow_from_directory(
+    dataset_path,
+    target_size=(128, 128),
+    batch_size=32,
+    class_mode='binary',
+    subset='training'
+)
+
+validation_generator = datagen.flow_from_directory(
+    dataset_path,
+    target_size=(128, 128),
+    batch_size=32,
+    class_mode='binary',
+    subset='validation'
+)
+
+# Build model
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dropout(0.5),
+    Dense(1, activation='sigmoid')
+])
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.summary()
+
+# Train model
+history = model.fit(
+    train_generator,
+    epochs=10,
+    validation_data=validation_generator
+)
+
+model.save('strawberry_model.h5')
+
+print('done till now')
