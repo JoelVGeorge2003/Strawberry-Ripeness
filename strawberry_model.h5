@@ -1,0 +1,90 @@
+# Step 1: Upload Kaggle API token
+from google.colab import files
+
+# Upload the kaggle.json file
+uploaded = files.upload()
+
+# Step 2: Set up Kaggle environment
+import os
+
+os.makedirs('/root/.kaggle', exist_ok=True)
+!mv kaggle.json /root/.kaggle/
+!chmod 600 /root/.kaggle/kaggle.json
+
+# Step 3: Download the dataset from Kaggle
+!kaggle datasets download -d aishtrips/final-strawberry-ripeness-dataset  # Download the specified dataset
+
+# Step 4: Unzip the dataset
+import zipfile
+
+with zipfile.ZipFile('final-strawberry-ripeness-dataset.zip', 'r') as zip_ref:  # Adjust to the downloaded filename
+    zip_ref.extractall('/content/dataset')  # Specify the extraction directory
+
+# Step 5: Verify contents of the dataset
+import os
+
+# List the contents of the dataset folder
+dataset_path = '/content/dataset'
+print("Contents of the dataset directory:")
+print(os.listdir(dataset_path))
+
+# Identify the correct path for the training directory
+# If the dataset contains subdirectories, we'll look for those.
+train_dir = dataset_path  # Update based on the contents of the dataset
+
+# Check for subdirectories (these should be your classes)
+subdirs = os.listdir(train_dir)
+print("Subdirectories (classes) in the training directory:")
+print(subdirs)
+
+# Step 6: Import necessary libraries for training
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras import layers, models
+
+# ImageDataGenerator for data augmentation
+train_datagen = ImageDataGenerator(
+    rescale=1.0/255,      # Normalize pixel values to [0, 1]
+    rotation_range=20,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest'
+)
+
+# Flow training images in batches
+train_generator = train_datagen.flow_from_directory(
+    train_dir,
+    target_size=(224, 224),  # Resize images to match model input
+    batch_size=32,
+    class_mode='sparse'  # Use 'sparse' if you have integer labels
+)
+
+# Define the model architecture
+model = models.Sequential([
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
+    layers.MaxPooling2D(pool_size=(2, 2)),
+
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D(pool_size=(2, 2)),
+
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D(pool_size=(2, 2)),
+
+    layers.Flatten(),
+    layers.Dense(128, activation='relu'),
+    layers.Dense(len(subdirs), activation='softmax')  # Adjust to the number of classes
+])
+
+# Compile the model
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',  # Change this if using sparse
+              metrics=['accuracy'])
+
+# Train the model
+model.fit(train_generator, epochs=10)  # Adjust epochs based on your dataset size
+
+# Save the model
+model.save('strawberry_model.h5')
